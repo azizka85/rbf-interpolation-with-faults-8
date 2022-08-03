@@ -233,8 +233,7 @@ def faults_exclude_point_from_found(
   return res
 
 class CsRbfWithFaults:
-  def __init__(
-    self, 
+  def interpolator(
     points: np.ndarray[Any, np.dtype[np.float64]],
     faults: list[tuple[tuple[float, float], tuple[float, float]]],
     rbf: Callable[[float, float], float] = basis,
@@ -324,16 +323,14 @@ class CsRbfWithFaults:
 
     b = cg(A, fb)
 
-    self.rs = rs
-    self.epsilon = epsilon
-    
-    self.rbf = rbf
-
-    self.b = b[0]
-    self.points = points
-    self.faults = faults
-
-    self.tree = tree
+    return CsRbfWithFaults(
+      rs, 
+      epsilon,
+      b[0],
+      points,
+      faults,
+      rbf
+    )
 
   def __call__(
     self,
@@ -355,4 +352,24 @@ class CsRbfWithFaults:
 
     return z
 
-    
+  def __init__(
+    self,
+    rs: float,
+    epsilon: float,
+    b: np.ndarray[Any, np.float64],
+    points: np.ndarray[Any, np.dtype[np.float64]],    
+    faults: list[tuple[tuple[float, float], tuple[float, float]]],
+    rbf: Callable[[float, float], float] = basis
+  ):
+    self.rs = rs
+    self.epsilon = epsilon
+
+    self.rbf = rbf
+
+    self.b = b
+    self.points = points
+    self.faults = faults
+
+    self.tree = KDTree(points[:, :2], copy_data=True)
+
+    return 

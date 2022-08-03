@@ -45,14 +45,14 @@ for p in points:
 
 plt.title(f'RBF VS CS-RBF, n={n}')
 
-ax = fig.add_subplot(1, 4, 1)
+ax = fig.add_subplot(1, 5, 1)
 ax.set_xticks(np.arange(-1, 1.1, 0.4))
 ax.set_yticks(np.arange(-1, 1.1, 0.2))
 ax.scatter(points[:, 0], points[:, 1])
 ax.grid()
 ax.set_title('Scatter plot')
 
-ax = fig.add_subplot(1, 4, 2, projection='3d')
+ax = fig.add_subplot(1, 5, 2, projection='3d')
 ax.plot_surface(x, y, z,cmap='plasma')
 ax.set_title('Surface plot')
 
@@ -72,7 +72,7 @@ mre = np.max(np.absolute(z-z_rbf)) / max_az
 finish = time()
 print('rbf finish: ', finish, ', time: ', finish - start)
 
-ax = fig.add_subplot(1, 4, 3, projection='3d')
+ax = fig.add_subplot(1, 5, 3, projection='3d')
 ax.plot_surface(x, y, z_rbf, cmap='plasma')
 ax.set_title(f'Without Faults, mre={round(mre, 2)}, time={round(finish - start, 2)}')
 
@@ -87,7 +87,7 @@ print('rbf start: ', start)
 #   x2, y2 - координаты второй точки линии
 # epsilon - максимальная ошибка расчета
 # rs - радиус поиска соседних точек лежащих в окрестности поиска, нужно для CsRbfWithFaults
-interpolator = CsRbfWithFaults(
+interpolator = CsRbfWithFaults.interpolator(
   points,
   faults,
   epsilon=epsilon,
@@ -100,8 +100,40 @@ mre = np.max(np.absolute(z-z_cs_rbf)) / max_az
 finish = time()
 print('rbf finish: ', finish, ', time: ', finish - start)
 
-ax = fig.add_subplot(1, 4, 4, projection='3d')
+ax = fig.add_subplot(1, 5, 4, projection='3d')
+ax.plot_surface(x, y, z_cs_rbf, cmap='plasma')
+ax.set_title(f'Without Faults, mre={round(mre, 2)}, time={round(finish - start, 2)}')
+
+# RBF интерполяция с учетом разломов
+start = time()
+print('rbf start: ', start)
+
+# Интерполяция с учетом разломов
+# rs - радиус поиска соседних точек лежащих в окрестности поиска, нужно для CsRbfWithFaults
+# epsilon - максимальная ошибка расчета
+# b - коэффициенты интерполяционной функции
+# points - точки где заданы значения для интерполяции, в продакшане нужно брать из БД
+# faults - список линии разломов, формата [((x1, y1), (x2, y2)), ...], где
+#   x1, y1 - координаты первой точки линии
+#   x2, y2 - координаты второй точки линии
+interpolator = CsRbfWithFaults(
+  interpolator.rs,
+  interpolator.epsilon,
+  interpolator.b,
+  interpolator.points,
+  interpolator.faults
+)
+
+z_cs_rbf = interpolator(x, y)
+mre = np.max(np.absolute(z-z_cs_rbf)) / max_az
+
+finish = time()
+print('rbf finish: ', finish, ', time: ', finish - start)
+
+ax = fig.add_subplot(1, 5, 5, projection='3d')
 ax.plot_surface(x, y, z_cs_rbf, cmap='plasma')
 ax.set_title(f'Without Faults, mre={round(mre, 2)}, time={round(finish - start, 2)}')
 
 plt.show()
+
+
