@@ -242,25 +242,7 @@ class CsRbfWithFaults:
   ):
     n = len(points)
 
-    tree = KDTree(points[:, :2], copy_data=True)
-
-    max_count = 0
-    min_count = n
-
-    new_points = []
-
     rf = 2 * rs / math.sqrt(3)
-
-    for p in points:    
-      count = tree.query_ball_point(p[:2], rs, return_length=True)
-
-      if count >= 2:
-        max_count = max(max_count, count)
-        min_count = min(min_count, count)
-
-        new_points.append(p)
-
-    points = np.array(new_points)
 
     tree = KDTree(points[:, :2], copy_data=True)
 
