@@ -233,6 +233,39 @@ def faults_exclude_point_from_found(
   return res
 
 class CsRbfWithFaults:
+  def check_faults(
+    points: np.ndarray[Any, np.dtype[np.float64]],
+    faults: list[tuple[tuple[float, float], tuple[float, float]]],
+    epsilon: float = 1e-4,
+    rs: float = 0.8
+  ):
+    n = len(points)
+
+    rf = 2 * rs / math.sqrt(3)
+
+    tree = KDTree(points[:, :2], copy_data=True)
+    
+    res = []
+
+    for p in points:
+      found = tree.query_ball_point(p[:2], rs)
+
+      res.append(set(found))
+
+    faults_exclude_points(faults, tree, rf, points, res, rs, rs * epsilon)
+
+    fb = []
+    db = {}
+
+    for i in range(0, n):
+      p = points[i]
+
+      if len(res[i]) > 1:
+        db[i] = len(fb)
+        fb.append(p[2])
+
+    return tree, res, db, fb    
+
   def interpolator(
     points: np.ndarray[Any, np.dtype[np.float64]],
     faults: list[tuple[tuple[float, float], tuple[float, float]]],
@@ -242,75 +275,45 @@ class CsRbfWithFaults:
   ):
     n = len(points)
 
-    rf = 2 * rs / math.sqrt(3)
+    tree, res, db, fb = CsRbfWithFaults.check_faults(points, faults, epsilon, rs)
 
-    tree = KDTree(points[:, :2], copy_data=True)
+    m = len(fb)
 
-    res = []
+    f = np.zeros(m)
 
-    for p in points:
-      found = tree.query_ball_point(p[:2], rs)
-
-      res.append(set(found))
-
-    faults_exclude_points(faults, tree, rf, points, res, rs, rs * epsilon)
-
-    max_count = 0
-    min_count = n
-    new_points = []
-
-    n = len(points)
-
-    for i in range(0, n):
-      s = res[i]
-
-      if len(s) > 1:
-        min_count = min(min_count, len(s))
-        max_count = max(max_count, len(s))
-        new_points.append(points[i])
-
-    points = np.array(new_points)
-
-    tree = KDTree(points[:, :2], copy_data=True)
-
-    res = []
-    fb = []
-
-    n = len(points)
-
-    for p in points:
-      fb.append(p[2])
-
-      found = tree.query_ball_point(p[:2], rs)
-
-      res.append(set(found))
-
-    faults_exclude_points(faults, tree, rf, points, res, rs, rs * epsilon)
-    
-    def mv(v):
-      f = np.zeros(n)
+    def mv(v):      
+      for k in range(m):
+        f[k] = 0
+      
+      k = 0
 
       for i in range(n):
-        for j in res[i]:
-          a = rbf(
-            distance(points[i], points[j]),
-            rs
-          )
+        if len(res[i]) > 1:
+          for j in res[i]:
+            a = rbf(
+              distance(points[i], points[j]),
+              rs
+            )
 
-          f[i] += a * v[j]
+            f[k] += a * v[db[j]]
+
+          k += 1
 
       return f
 
-    A = LinearOperator((n, n), matvec=mv)    
+    A = LinearOperator((m, m), matvec=mv)    
 
     b = cg(A, fb)
 
     return CsRbfWithFaults(
       rs, 
       epsilon,
-      b[0],
       points,
       faults,
+      b[0],
+      db,
+      res,
+      tree,
       rbf
     )
 
@@ -329,18 +332,22 @@ class CsRbfWithFaults:
         found = faults_exclude_point_from_found((x[i, j], y[i, j]), found, self.points, self.faults, self.rs * self.epsilon)  
 
         for k in found:
+          l = self.db[k]
           p = self.points[k]
-          z[i, j] += self.b[k] * self.rbf(distance((x[i, j], y[i, j]), p), self.rs)
+          z[i, j] += self.b[l] * self.rbf(distance((x[i, j], y[i, j]), p), self.rs)
 
     return z
 
   def __init__(
     self,
     rs: float,
-    epsilon: float,
-    b: np.ndarray[Any, np.float64],
+    epsilon: float,    
     points: np.ndarray[Any, np.dtype[np.float64]],    
     faults: list[tuple[tuple[float, float], tuple[float, float]]],
+    b: np.ndarray[Any, np.float64],
+    db: dict,
+    res: list[set],
+    tree: KDTree,
     rbf: Callable[[float, float], float] = basis
   ):
     self.rs = rs
@@ -348,10 +355,12 @@ class CsRbfWithFaults:
 
     self.rbf = rbf
 
-    self.b = b
     self.points = points
     self.faults = faults
 
-    self.tree = KDTree(points[:, :2], copy_data=True)
+    self.b = b
+    self.db = db
+    self.res = res
+    self.tree = tree
 
     return 

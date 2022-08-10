@@ -7,9 +7,10 @@ import matplotlib.pyplot as plt
 from scipy.interpolate._rbf import Rbf
 from cs_rbf_with_faults import CsRbfWithFaults
 
-from examples.example_1 import target, faults
+# from examples.example_1 import target, faults
+from examples.example_2 import target, faults
 
-# Сетка для рассчета значении интерполяционной функции в узлах сетки
+# Сетка для расчета значении интерполяционной функции в узлах сетки
 x = np.linspace(-1, 1, 101)
 y = np.linspace(-1, 1, 101)
 
@@ -116,12 +117,22 @@ print('rbf start: ', start)
 # faults - список линии разломов, формата [((x1, y1), (x2, y2)), ...], где
 #   x1, y1 - координаты первой точки линии
 #   x2, y2 - координаты второй точки линии
+tree, res, db, fb = CsRbfWithFaults.check_faults(
+  points, 
+  faults, 
+  epsilon, 
+  rs
+)
+
 interpolator = CsRbfWithFaults(
-  interpolator.rs,
-  interpolator.epsilon,
+  rs,
+  epsilon,  
+  points,
+  faults,
   interpolator.b,
-  interpolator.points,
-  interpolator.faults
+  db,
+  res,
+  tree
 )
 
 z_cs_rbf = interpolator(x, y)
